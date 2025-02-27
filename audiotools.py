@@ -3,6 +3,9 @@ import sounddevice as sd
 import numpy as np
 import scipy.signal as signal
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 class AudioTools:
 
     def __init__(self):
@@ -10,6 +13,45 @@ class AudioTools:
         self.fs = 44100
         self.duration =  0.25 # Duration of each recording chunk
         self.threshold = 0.1  # Magnitude threshold for valid frequencies
+
+    def is_silent(self, audio):
+        ''' Returns True if no note is detected (silence/noise), False otherwise.'''
+        rms_threshold_db=-40
+
+        # Normalize audio to [-1, 1]
+        audio = audio / np.max(np.abs(audio) + 1e-5)  # Avoid division by zero
+
+        # 1. Check RMS energy (convert to dB)
+        rms = lb.feature.rms(y=audio)[0]
+        rms_db = lb.amplitude_to_db(rms, ref=1.0)
+        mean_rms_db = np.mean(rms_db)
+
+        # 3. Determine if silent
+        is_silent =  mean_rms_db < rms_threshold_db 
+
+        return is_silent
+
+
+    def note_detect(self, sound):
+        ''' Simple function that returns the note being played from an np.array `sound` '''
+        if self.is_silent(sound):
+            return None
+        file_length= len(sound)
+
+        # Fourier transformation from numpy module
+        fourier = np.fft.fft(sound)
+
+        # plt.plot(fourier)
+        plt.show()
+
+        fourier = np.absolute(fourier)
+        max_indx=np.argmax(fourier)
+ 
+        freq=(max_indx*self.fs)/(file_length) # Formula to convert index into sound frequency
+
+        print(f"Freq is {freq}")
+
+        return lb.hz_to_note(freq)
 
     def record(self):
         ''' Records `duration` seconds of sound and returns an np array of that sound'''
@@ -21,6 +63,11 @@ class AudioTools:
             print(f"Recording failed: {e}")
             return None
 
+    def play(self, sound):
+            if sound is not None:
+                sd.play(sound, samplerate= self.fs)
+                sd.wait()
+
     def process_audio_fft(self, audio_data):
         ''' uses the fast fourrier transform to proccess the audio '''
         if audio_data is None or len(audio_data) == 0:
@@ -31,7 +78,7 @@ class AudioTools:
         audio_data = audio_data / np.max(np.abs(audio_data))
 
         # Apply a Hanning window to reduce noise
-        window = signal.windows.hann(len(audio_data))
+        window = signal.windows.hann(len(audio_data)) 
         windowed_audio = audio_data * window
 
         # Compute Fourrier transform
@@ -50,7 +97,8 @@ class AudioTools:
 
         return peak_freq
 
-    def process_audio(self, audio_data):
+    def _note_detect(self, audio_data):
+        ''' More complicated legacy note_detect algorithm. The simple algorithm works better  '''
         # uses librosa to process audio
         if audio_data is None or len(audio_data) == 0:
             print("No audio data to process.")
@@ -78,19 +126,14 @@ class AudioTools:
                 print("No significant frequency detected.")
                 return None
 
-            print(f"Detected Frequency: {pitch_freq:.2f} Hz")
 
             # Convert frequency to note
             note = lb.hz_to_note(pitch_freq)
-            print(f"Detected Note: {note}")
 
-            return pitch_freq
+            return note
         except Exception as e:
             print(f"Error processing audio: {e}")
             return None
 
 
-    def play(self, sound):
-        if sound is not None:
-            sd.play(sound, samplerate= self.fs)
-            sd.wait()
+    
