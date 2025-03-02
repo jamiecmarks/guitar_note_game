@@ -7,13 +7,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class AudioTools:
+    ''' Contains all the neccesary audio tools for processing audio effectively
+    and note detection ''' 
 
     def __init__(self):
         # constants
         self.fs = 44100
         self.duration =  0.25 # Duration of each recording chunk
         self.freq_threshold = 0.1  # Magnitude freq_threshold for valid frequencies
-        self.silence_threshold_db = -60
+        self.silence_threshold_db = -53
 
     def is_silent(self, audio):
         ''' Returns True if no note is detected (silence/noise), False otherwise.'''
@@ -50,9 +52,6 @@ class AudioTools:
 
         # Fourier transformation from numpy module
         fourier = np.fft.fft(sound)
-
-        # plt.plot(fourier)
-        plt.show()
 
         fourier = np.absolute(fourier)
         max_indx=np.argmax(fourier)
@@ -105,32 +104,19 @@ class AudioTools:
         audio_data = audio_data / np.max(np.abs(audio_data))
 
         # Use librosa's pitch detection to find the fundamental frequency
-        try:
-            # Detect pitch using librosa's piptrack
-            pitches, magnitudes = lb.core.piptrack(
-                y=audio_data,
-                sr=self.fs,
-                fmin=80,  # Minimum frequency (e.g., lower bound for musical notes)
-                fmax=1000  # Maximum frequency (e.g., upper bound for musical notes)
-            )
+        # Detect pitch using librosa's piptrack
+        pitches, magnitudes = lb.core.piptrack(
+            y=audio_data,
+            sr=self.fs,
+            fmin=80,  # Minimum frequency (e.g., lower bound for musical notes)
+            fmax=1000  # Maximum frequency (e.g., upper bound for musical notes)
+        )
 
-            # Get the pitch with the highest magnitude
-            pitch_index = magnitudes.argmax()
-            pitch_freq = pitches[pitch_index // magnitudes.shape[1], pitch_index % magnitudes.shape[1]]
+        # Get the pitch with the highest magnitude
+        pitch_index = magnitudes.argmax()
+        pitch_freq = pitches[pitch_index // magnitudes.shape[1], pitch_index % magnitudes.shape[1]]
 
-            # Ignore frequencies with very low magnitudes (likely noise)
-            if magnitudes.max() < self.freq_threshold:
-                print("No significant frequency detected.")
-                return None
+        # Convert frequency to note
+        note = lb.hz_to_note(pitch_freq)
 
-
-            # Convert frequency to note
-            note = lb.hz_to_note(pitch_freq)
-
-            return note
-        except Exception as e:
-            print(f"Error processing audio: {e}")
-            return None
-
-
-    
+        return note
