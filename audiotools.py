@@ -12,30 +12,26 @@ class AudioTools:
         # constants
         self.fs = 44100
         self.duration =  0.25 # Duration of each recording chunk
-        self.threshold = 0.1  # Magnitude threshold for valid frequencies
+        self.freq_threshold = 0.1  # Magnitude freq_threshold for valid frequencies
+        self.silence_threshold_db = -60
 
     def is_silent(self, audio):
         ''' Returns True if no note is detected (silence/noise), False otherwise.'''
-        rms_threshold_db=-40
 
-        # Normalize audio to [-1, 1]
-        audio = audio / np.max(np.abs(audio) + 1e-5)  # Avoid division by zero
+        if np.max(np.abs(audio)) < 1e-5:  # Handle all-zero audio
+            return True
 
-        # 1. Check RMS energy (convert to dB)
         rms = lb.feature.rms(y=audio)[0]
-        rms_db = lb.amplitude_to_db(rms, ref=1.0)
-        mean_rms_db = np.mean(rms_db)
+        peak_rms_db = lb.amplitude_to_db(rms.max(), ref=1.0)
 
-        # 3. Determine if silent
-        is_silent =  mean_rms_db < rms_threshold_db 
-
-        return is_silent
+        return peak_rms_db < self.silence_threshold_db
 
 
     def note_detect(self, sound):
         ''' Simple function that returns the note being played from an np.array `sound` '''
         if self.is_silent(sound):
             return None
+
         file_length= len(sound)
 
         # Fourier transformation from numpy module
@@ -122,7 +118,7 @@ class AudioTools:
             pitch_freq = pitches[pitch_index // magnitudes.shape[1], pitch_index % magnitudes.shape[1]]
 
             # Ignore frequencies with very low magnitudes (likely noise)
-            if magnitudes.max() < self.threshold:
+            if magnitudes.max() < self.freq_threshold:
                 print("No significant frequency detected.")
                 return None
 
