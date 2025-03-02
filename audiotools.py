@@ -26,8 +26,22 @@ class AudioTools:
 
         return peak_rms_db < self.silence_threshold_db
 
+    def record(self):
+            ''' Records `duration` seconds of sound and returns an np array of that sound'''
+            try:
+                myarray = sd.rec(int(self.duration * self.fs), samplerate=self.fs, channels=1, dtype=np.float32)
+                sd.wait()
+                return myarray.flatten()  # Flatten to 1D array
+            except Exception as e:
+                print(f"Recording failed: {e}")
+                return None
 
-    def note_detect(self, sound):
+    def play(self, sound):
+            if sound is not None:
+                sd.play(sound, samplerate= self.fs)
+                sd.wait()
+
+    def simple_note_detect(self, sound):
         ''' Simple function that returns the note being played from an np.array `sound` '''
         if self.is_silent(sound):
             return None
@@ -49,20 +63,7 @@ class AudioTools:
 
         return lb.hz_to_note(freq)
 
-    def record(self):
-        ''' Records `duration` seconds of sound and returns an np array of that sound'''
-        try:
-            myarray = sd.rec(int(self.duration * self.fs), samplerate=self.fs, channels=1, dtype=np.float32)
-            sd.wait()
-            return myarray.flatten()  # Flatten to 1D array
-        except Exception as e:
-            print(f"Recording failed: {e}")
-            return None
-
-    def play(self, sound):
-            if sound is not None:
-                sd.play(sound, samplerate= self.fs)
-                sd.wait()
+    
 
     def process_audio_fft(self, audio_data):
         ''' uses the fast fourrier transform to proccess the audio '''
@@ -93,11 +94,11 @@ class AudioTools:
 
         return peak_freq
 
-    def _note_detect(self, audio_data):
-        ''' More complicated legacy note_detect algorithm. The simple algorithm works better  '''
+    def note_detect(self, audio_data):
+        ''' More complicated note_detect algorithm. '''
+
         # uses librosa to process audio
-        if audio_data is None or len(audio_data) == 0:
-            print("No audio data to process.")
+        if audio_data is None or len(audio_data) == 0 or self.is_silent(audio_data):
             return None
 
         # Normalize the audio signal
